@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#6421b8" />
+    <meta name="description" content="Biblioteca de quadrinhos com narração sincronizada." />
+    <link rel="icon" type="image/png" sizes="32x32" href="./icons/gimbol-favicon-32.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="./icons/gimbol-apple-180.png" />
+    <link rel="stylesheet" href="./src/style.css?v=20" />
+    <title>Gimbol · Biblioteca</title>
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar">
+        <div class="brand" aria-label="Gimbol"><img class="brand-mark" src="./icons/gimbol-192.png" alt="" width="56" height="56" /><span>Gimbol</span></div>
+      </header>
+
+      <section id="library-view" hidden aria-labelledby="library-title">
+        <img class="library-art" src="./Banner.png" alt="" width="1983" height="793" fetchpriority="high" />
+        <div class="section-heading"><p class="eyebrow">Escolha uma aventura</p><h1 id="library-title">Biblioteca</h1><p>Histórias para ler no seu ritmo.</p></div>
+        <button id="offline-library" class="offline-banner" type="button" aria-pressed="false" aria-label="Mostrar histórias baixadas">
+          <span class="offline-banner-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="m3 3 18 18M2 8.5a16 16 0 0 1 3-1.8M8.8 5.6A16 16 0 0 1 22 8.5M5 12a11 11 0 0 1 3.7-1.8M13 10a11 11 0 0 1 6 2M8.5 15.5a5 5 0 0 1 6.7-.2"/><circle cx="12" cy="19" r="1" fill="currentColor" stroke="none"/></svg></span>
+          <span><strong>Sem internet</strong><span class="banner-separator" aria-hidden="true"> · </span><span>Suas histórias baixadas continuam disponíveis.</span><small id="offline-filter-hint">Ver histórias baixadas</small></span>
+          <svg class="banner-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg>
+        </button>
+        <p id="library-status" class="message" role="status" aria-live="polite">Carregando histórias…</p>
+        <section id="continue-section" class="library-section" aria-labelledby="continue-title" hidden>
+          <h2 id="continue-title" class="library-section-title">Continue lendo<span class="heading-rays" aria-hidden="true"></span></h2>
+          <div id="continue-list" class="story-list"></div>
+        </section>
+        <section id="all-stories-section" class="library-section" aria-labelledby="all-stories-title">
+          <h2 id="all-stories-title" class="library-section-title">Escolha sua próxima história<span class="heading-rays" aria-hidden="true"></span></h2>
+          <div id="story-list" class="story-list"></div>
+        </section>
+        <button id="retry-library" class="secondary-button" type="button" hidden>Tentar novamente</button>
+      </section>
+
+      <section id="reader-view" hidden aria-labelledby="story-title">
+        <div class="reader-stage">
+          <div class="reader-chrome">
+            <button id="library-button" class="stage-button" type="button" aria-label="Voltar à biblioteca" title="Voltar à biblioteca" hidden><img src="./icons/library.svg" alt="" /></button>
+            <button id="enter-fullscreen" class="stage-button fullscreen-entry" type="button" aria-label="Entrar em tela cheia" title="Entrar em tela cheia" disabled><span aria-hidden="true">⛶</span></button>
+            <h1 id="story-title" class="sr-only"></h1>
+            <div id="position" class="page-position" role="status"><strong id="page-counter"></strong><small id="scene-counter"></small></div>
+          </div>
+          <button id="exit-fullscreen" class="fullscreen-exit" type="button" hidden>Sair da tela cheia</button>
+          <p id="announcement" class="sr-only" aria-live="polite"></p>
+          <div id="reader-error" class="message error" role="alert" hidden></div>
+          <div id="download-status" class="download-status" hidden>
+            <span id="download-label">Baixando…</span>
+            <span id="download-announcement" class="sr-only" role="status" aria-live="polite"></span>
+            <progress id="download-progress" max="100" aria-label="Download da história"></progress>
+            <span id="download-percent" aria-hidden="true"></span>
+          </div>
+          <button id="retry-story" class="secondary-button" type="button" hidden>Tentar abrir novamente</button>
+          <button id="open-saved" class="secondary-button" type="button" hidden>Abrir versão salva</button>
+
+          <div id="reading-content" class="reading-content">
+            <section class="reader-card" aria-label="Quadrinho atual">
+              <div id="art-viewport" class="art-viewport">
+                <div id="focused-view" class="panel-frame"><img id="panel" alt="" draggable="false" /><div id="highlight-layer" class="highlight-layer" aria-hidden="true"></div></div>
+                <div id="page-view" class="page-view" aria-label="Página completa" hidden></div>
+              </div>
+              <div class="caption-area"><div id="transcript" class="transcript" aria-label="Texto do quadrinho"></div><p id="audio-status" class="audio-status" role="status" aria-live="polite"></p><button id="retry-audio" class="secondary-button" type="button" hidden>Ouvir cena</button></div>
+            </section>
+          </div>
+          <div id="end-card" class="end-card" hidden><h2>Fim da história</h2><p>Quer viver essa aventura mais uma vez?</p><button id="replay" class="nav-button" type="button">Reler desde o começo</button><button id="end-library" class="secondary-button" type="button">Voltar à biblioteca</button></div>
+        </div>
+
+        <div class="reader-dock">
+          <div class="volume-row">
+            <img src="./icons/speaker.svg" alt="" aria-hidden="true" />
+            <label class="sr-only" for="music-volume">Volume da música</label>
+            <input id="music-volume" type="range" min="0" max="100" step="1" value="25" aria-label="Volume da música" />
+            <output id="music-volume-value" for="music-volume">25%</output>
+          </div>
+          <nav class="dock-controls" aria-label="Controles da leitura">
+            <button id="music" class="dock-button dock-button--music" type="button" aria-label="Música desligada" title="Música desligada" aria-pressed="false"><span class="icon-disc"><img src="./icons/music.svg" alt="" /></span></button>
+            <button id="voices" class="dock-button dock-button--voices" type="button" aria-label="Narração ligada" title="Narração ligada" aria-pressed="true"><span class="icon-disc"><img src="./icons/voice.svg" alt="" /></span></button>
+            <button id="previous-page" class="dock-button dock-button--page" type="button" aria-label="Página anterior" title="Página anterior"><span class="icon-disc"><img src="./icons/previous-page.svg" alt="" /></span></button>
+            <button id="previous" class="dock-button dock-button--scene" type="button" aria-label="Quadrinho anterior" title="Quadrinho anterior"><span class="icon-disc"><img src="./icons/previous.svg" alt="" /></span></button>
+            <button id="auto" class="dock-button dock-button--auto" type="button" aria-label="Avanço automático desligado" title="Avanço automático desligado" aria-pressed="false"><span class="icon-disc"><img src="./icons/auto.svg" alt="" /></span></button>
+            <button id="next" class="dock-button dock-button--scene" type="button" aria-label="Próximo quadrinho" title="Próximo quadrinho"><span class="icon-disc"><img src="./icons/next.svg" alt="" /></span></button>
+            <button id="next-page" class="dock-button dock-button--page" type="button" aria-label="Próxima página" title="Próxima página"><span class="icon-disc"><img src="./icons/next-page.svg" alt="" /></span></button>
+            <button id="view-mode" class="dock-button dock-button--view" type="button" aria-label="Ver um quadrinho" title="Ver um quadrinho" aria-pressed="true"><span class="icon-disc"><img src="./icons/view.svg" alt="" /></span></button>
+          </nav>
+        </div>
+      </section>
+    </main>
+    <script type="module" src="./src/main.js?v=20"></script>
+  </body>
+</html>
