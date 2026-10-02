@@ -235,14 +235,9 @@ function auditSavedStory(record) {
 }
 
 function preferences() {
-  const defaults = { voicesEnabled: true, musicEnabled: false, autoAdvanceEnabled: false,
-    pageOverviewEnabled: window.matchMedia('(min-width: 768px)').matches, musicVolumePercent: 25 };
-  try {
-    const stored = JSON.parse(localStorage.getItem('gimbol-standalone-preferences') ?? '{}');
-    for (const key of Object.keys(defaults)) if (key !== 'musicVolumePercent' && typeof stored[key] === 'boolean') defaults[key] = stored[key];
-    if (Number.isFinite(stored.musicVolumePercent)) defaults.musicVolumePercent = Math.max(0, Math.min(100, Math.round(stored.musicVolumePercent)));
-  } catch { /* Leitura permanece disponível se o storage falhar. */ }
-  return defaults;
+  // Entry is deterministic: no stored mode, bookmark or viewport overrides.
+  return { voicesEnabled: false, musicEnabled: false, autoAdvanceEnabled: false,
+    pageOverviewEnabled: false, musicVolumePercent: 25 };
 }
 
 function savePreferences(state) {
@@ -277,6 +272,9 @@ function displayLibrary() {
 }
 
 function showReaderError(message) {
+  window.gimbolBoot.fail('arte');
+  el.retryStory.hidden = false;
+  document.querySelector('#standalone-start').hidden = true;
   el.enterFullscreen.disabled = true;
   drag.cancel(false, false);
   el.error.textContent = message;
@@ -471,12 +469,13 @@ async function startReader(bundle, bundleUrl, generation, availablePages = Infin
   el.downloadStatus.hidden = availablePages === Infinity; el.openSaved.hidden = true;
   el.error.hidden = true; el.content.hidden = false; el.position.hidden = false;
   document.title = `${bundle.title} · Gimbol`;
-  const resume = resumeIndex(readBookmark(bundle.slug, bundle.version), reader.scenes);
+  const resume = 0;
   reader.enter(reader.scenes[resume].pageIndex < availablePages ? resume : 0);
 }
 
 async function openStory(slug, requestedVersion = null) {
   const generation = ++requestGeneration;
+  window.gimbolBoot.loading();
   await presentation.exit({ dispose: true });
   drag.cancel(false, false);
   reader?.dispose(); reader = null; renderedPage = null;
@@ -493,11 +492,16 @@ async function openStory(slug, requestedVersion = null) {
     const bundle = await response.json();
     el.title.textContent = bundle.title;
     await startReader(bundle, bundleUrl, generation);
+    await decodeSharedImage(el.panel);
+    if (generation !== requestGeneration) return;
+    window.gimbolBoot.ready();
+    document.querySelector('#standalone-start').hidden = false;
   } catch (error) {
     if (generation !== requestGeneration) return;
     showReaderError('Não foi possível abrir a história. Confira a conexão e tente novamente.');
     el.retryStory.hidden = false;
     console.error('[Gimbol standalone]', error);
+    window.gimbolBoot.fail('historia');
   }
 }
 
@@ -761,4 +765,14 @@ document.addEventListener('keydown', event => {
   if (actions[event.key]) { event.preventDefault(); drag.cancel(false, false); actions[event.key](); }
 });
 window.addEventListener('popstate', followRoute);
+document.querySelector('#standalone-start').addEventListener('click', () => {
+  if (!reader || reader.state.status !== 'ready') return;
+  document.querySelector('#standalone-start').hidden = true;
+  document.querySelector('#standalone-status').textContent = '';
+  // Audio play calls stay in the click task before requesting fullscreen.
+  reader.setVoices(true);
+  reader.setMusic(true);
+  reader.setAutoAdvance(true);
+  presentation.enter();
+});
 followRoute();

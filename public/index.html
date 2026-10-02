@@ -9,9 +9,23 @@
     <link rel="apple-touch-icon" sizes="180x180" href="./icons/gimbol-apple-180.png" />
     <link rel="stylesheet" href="./src/style.css?v=20" />
     <title>Gimbol · Biblioteca</title>
-  </head>
+  <style>#standalone-entry { text-align:center; padding:1rem; }
+#standalone-entry button { padding:.85rem 1.3rem; border:0; border-radius:1rem; background:#6421b8; color:white; font:inherit; cursor:pointer; }
+#standalone-entry button:focus-visible { outline:3px solid #d49623; outline-offset:3px; }
+#standalone-details { white-space:pre-wrap; overflow-wrap:anywhere; text-align:left; font-size:.8rem; }
+#standalone-status:empty { display:none; }
+.reading-expanded .fullscreen-exit { max-width:90vw; }
+@supports not (height:100dvh) { .fullscreen-surface.is-expanded { height:100vh; } }
+</style></head>
   <body>
     <main class="app-shell">
+          <section id="standalone-entry" aria-label="Abertura da história">
+            <p id="standalone-status" role="status" aria-live="polite">Carregando história…</p>
+            <button id="standalone-start" type="button" hidden>Iniciar história</button>
+            <button id="standalone-reload" type="button" hidden>Tentar novamente</button>
+            <details id="standalone-diagnostic" hidden><summary>Diagnóstico</summary><pre id="standalone-details"></pre></details>
+            <noscript>Ative JavaScript ou abra este link no Safari, Firefox ou Chrome para ler a história.</noscript>
+          </section>
       <header class="topbar">
         <div class="brand" aria-label="Gimbol"><img class="brand-mark" src="./icons/gimbol-192.png" alt="" width="56" height="56" /><span>Gimbol</span></div>
       </header>
@@ -88,6 +102,43 @@
         </div>
       </section>
     </main>
-    <script type="module" src="./src/main.js?v=20"></script>
-  </body>
+
+  <script>// Classic script keeps loading/errors visible even when the module graph fails.
+(function () {
+  var status = document.getElementById('standalone-status');
+  var retry = document.getElementById('standalone-reload');
+  var diagnostic = document.getElementById('standalone-diagnostic');
+  var details = document.getElementById('standalone-details');
+  var started = false;
+  var timer;
+  function fail(code) {
+    clearTimeout(timer);
+    status.textContent = 'Não foi possível abrir a história. Tente novamente ou abra o link no navegador do celular.';
+    retry.hidden = false;
+    diagnostic.hidden = false;
+    details.textContent = 'Código: ' + code + '\nVersão: I-028-20261002\nNavegador: ' + navigator.userAgent;
+  }
+  function loading() {
+    clearTimeout(timer);
+    status.textContent = 'Carregando história…';
+    retry.hidden = true;
+    diagnostic.hidden = true;
+    timer = setTimeout(function () { fail('tempo-de-carregamento'); }, 30000);
+  }
+  window.gimbolBoot = {
+    loading: loading,
+    ready: function () { clearTimeout(timer); started = true; status.textContent = 'Toque em Iniciar história para ouvir e acompanhar em tela cheia.'; },
+    fail: fail
+  };
+  retry.addEventListener('click', function () { location.reload(); });
+  window.addEventListener('error', function () { fail(started ? 'execucao' : 'inicializacao'); });
+  window.addEventListener('unhandledrejection', function () { fail(started ? 'recurso' : 'modulos'); });
+  loading();
+  try {
+    // Parsing dynamic import inside a function lets unsupported browsers show a message.
+    var load = new Function('return import("./src/main.js?v=I028-20261002")');
+    load().catch(function () { fail('modulos'); });
+  } catch (error) { fail('navegador-incompativel'); }
+}());
+</script></body>
 </html>
