@@ -1,4 +1,4 @@
-const STANDALONE_BUNDLE = "./library/o-lugar-onde-a-historia-continua/sha256-812825b5438ed9aad71f97fc77cf9b2423fc3c77f53676ff151d8e11228b8b5f/bundle.json";
+const STANDALONE_BUNDLE = "./library/o-lugar-onde-a-historia-continua/sha256-965ee28eff137028aca9ec33948f8ac8766579380f77e33abe2cb69bcc8dfdfd/bundle.json";
 const STANDALONE_SLUG = "o-lugar-onde-a-historia-continua";
 import { setSharedImage, decodeSharedImage, observeSharedImages } from './shared-images.js';
 import { scenePresentation } from './bundle-contract.js';

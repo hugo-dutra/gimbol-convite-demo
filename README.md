@@ -4,6 +4,8 @@ Demonstração pública com Gibi e Narrada completos no mesmo bundle. Abre em Na
 
 https://hugo-dutra.github.io/gimbol-convite-demo/
 
+Caixas do narrador dimensionadas e divididas em ordem de leitura para manter cabeças e rostos livres.
+
 Somente runtime e mídia públicos; nenhuma fonte privada, sessão ou API. A primeira cena começa após Iniciar história, que também solicita tela cheia.
 
-Release: sha256-812825b5438ed9aad71f97fc77cf9b2423fc3c77f53676ff151d8e11228b8b5f
+Release: sha256-965ee28eff137028aca9ec33948f8ac8766579380f77e33abe2cb69bcc8dfdfd
