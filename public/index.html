@@ -112,12 +112,14 @@
   var details = document.getElementById('standalone-details');
   var started = false;
   var timer;
-  function fail(code) {
+  function fail(code, error) {
     clearTimeout(timer);
     status.textContent = 'Não foi possível abrir a história. Tente novamente ou abra o link no navegador do celular.';
     retry.hidden = false;
     diagnostic.hidden = false;
-    details.textContent = 'Código: ' + code + '\nVersão: I-028-20261002\nNavegador: ' + navigator.userAgent;
+    // Keep public diagnostics bounded; omit URLs, paths and stacks.
+    var reason = error && error.name ? String(error.name).replace(/[^A-Za-z0-9_-]/g, '').slice(0, 60) : '';
+    details.textContent = 'Código: ' + code + '\nVersão: runtime-f35b0cdde1e07d4c9e78cf6872997e9d8af840fa63de374a30008143c9724ef2' + (reason ? '\nErro: ' + reason : '') + '\nNavegador: ' + navigator.userAgent;
   }
   function loading() {
     clearTimeout(timer);
@@ -132,13 +134,13 @@
     fail: fail
   };
   retry.addEventListener('click', function () { location.reload(); });
-  window.addEventListener('error', function () { fail(started ? 'execucao' : 'inicializacao'); });
-  window.addEventListener('unhandledrejection', function () { fail(started ? 'recurso' : 'modulos'); });
+  window.addEventListener('error', function (event) { fail(started ? 'execucao' : 'inicializacao', event.error); });
+  window.addEventListener('unhandledrejection', function (event) { fail(started ? 'recurso' : 'modulos', event.reason); });
   loading();
   try {
     // Parsing dynamic import inside a function lets unsupported browsers show a message.
-    var load = new Function('return import("./src/main.js?v=I028-20261002")');
-    load().catch(function () { fail('modulos'); });
+    var load = new Function('return import("./src/runtime-f35b0cdde1e07d4c9e78cf6872997e9d8af840fa63de374a30008143c9724ef2/main.js")');
+    load().catch(function (error) { fail('modulos', error); });
   } catch (error) { fail('navegador-incompativel'); }
 }());
 </script></body>
