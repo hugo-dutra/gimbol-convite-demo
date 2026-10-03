@@ -508,6 +508,7 @@ async function openStory(slug, requestedVersion = null) {
 const failedVariants = new Set();
 
 function balloonAssets(layer, scene, activeId, overview = false) {
+  layer.replaceChildren(); return; // Standalone explicit no-balloons presentation
   const bundle = reader.bundle;
   const key = bundle.version + '/' + scene.id + '/' + scene.panel;
   if (layer.dataset.visualScene !== key) {

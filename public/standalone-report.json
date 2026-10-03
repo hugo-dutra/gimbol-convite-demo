@@ -5,7 +5,7 @@
   "defaultNarrative": "narrada",
   "showBalloons": false,
   "publicAssets": 441,
-  "payloadBytes": 93049215,
+  "payloadBytes": 93049298,
   "largestFileBytes": 4492060,
   "files": {
     ".nojekyll": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
@@ -474,7 +474,7 @@
     "src/bundle-contract.js": "81be2fc108866615cfc1cf1746f91eb9e1f9f6b17a5370585a651104bc453f73",
     "src/drag-turn.js": "fe18d01c78b110d54ae17b87d0b89a59f40e41c96200cdaf5295f9c6a2d31a15",
     "src/fullscreen.js": "36c44aa9d5c6c608096bfcfdf2a630fd07e49870f99a9f51a07da36260dcc62c",
-    "src/main.js": "b317831732e3df23eb82ead5b278a3b2ea882d23b25dcd724948ee76abc7fda7",
+    "src/main.js": "60e9f3fe04c6f4f3a994b77a538f196646d926240818e2d340be306f0aa14bf0",
     "src/offline-library.js": "19fe4943af4e9bd0a2521c79001cd3d1d2bb6429b58eb4b9b7f72aaba4eb03d3",
     "src/page-turn.js": "789acb4ec2c691437528bfe3466d21c4758acf4bc5120e6cf9fd60d7ebd72e34",
     "src/reader.js": "4532d9e3663936e4bfd5f9f0cf9a68f99fa2bceb48cacab72fe908d6aebb634d",
