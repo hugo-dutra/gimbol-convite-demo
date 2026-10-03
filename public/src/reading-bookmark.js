@@ -4,6 +4,7 @@ function valid(bookmark) {
   return bookmark && typeof bookmark.sceneId === 'string' && bookmark.sceneId.length > 0 &&
     Number.isInteger(bookmark.sceneIndexGlobal) && Number.isInteger(bookmark.totalScenes) &&
     bookmark.totalScenes > 0 && bookmark.sceneIndexGlobal >= 0 && bookmark.sceneIndexGlobal < bookmark.totalScenes &&
+    (bookmark.narrative === undefined || ['gibi', 'narrada'].includes(bookmark.narrative)) &&
     typeof bookmark.completed === 'boolean' && typeof bookmark.updatedAt === 'string' &&
     Number.isFinite(Date.parse(bookmark.updatedAt));
 }
@@ -20,7 +21,7 @@ export function writeBookmark(slug, version, bookmark, storage) {
   try {
     const previous = readBookmark(slug, version, storage);
     if (previous?.sceneId === bookmark.sceneId && previous.sceneIndexGlobal === bookmark.sceneIndexGlobal &&
-        previous.totalScenes === bookmark.totalScenes && previous.completed === bookmark.completed) return true;
+        previous.totalScenes === bookmark.totalScenes && (previous.narrative ?? 'gibi') === (bookmark.narrative ?? 'gibi') && previous.completed === bookmark.completed) return true;
     (storage ?? localStorage).setItem(key(slug, version), JSON.stringify(bookmark));
     return true;
   } catch { return false; }

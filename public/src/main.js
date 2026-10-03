@@ -1,4 +1,4 @@
-const STANDALONE_BUNDLE = "./library/o-lugar-onde-a-historia-continua/sha256-0a05a7354221bbab25bad9ef506171296f01147d97b527b5434515ddd18e83a3/bundle.json";
+const STANDALONE_BUNDLE = "./library/o-lugar-onde-a-historia-continua/sha256-812825b5438ed9aad71f97fc77cf9b2423fc3c77f53676ff151d8e11228b8b5f/bundle.json";
 const STANDALONE_SLUG = "o-lugar-onde-a-historia-continua";
 import { setSharedImage, decodeSharedImage, observeSharedImages } from './shared-images.js';
 import { scenePresentation } from './bundle-contract.js';
@@ -14,7 +14,7 @@ observeSharedImages(document.documentElement);
 
 function artwork(image, path, bundle) {
   const url = new URL(path, bundle.assetBase).href;
-  if (['3.0', '4.0'].includes(bundle.schemaVersion)) setSharedImage(image, url);
+  if (['3.0', '4.0', '5.0'].includes(bundle.schemaVersion)) setSharedImage(image, url);
   else image.src = url;
 }
 
@@ -34,7 +34,7 @@ const el = {
   panel: $('#panel'), layer: $('#highlight-layer'), pageView: $('#page-view'), artViewport: $('#art-viewport'),
   transcript: $('#transcript'), audioStatus: $('#audio-status'), retryAudio: $('#retry-audio'),
   previous: $('#previous'), next: $('#next'), previousPage: $('#previous-page'), nextPage: $('#next-page'),
-  voices: $('#voices'), music: $('#music'), volume: $('#music-volume'), volumeValue: $('#music-volume-value'), auto: $('#auto'), viewMode: $('#view-mode'),
+  narrative: $('#narrative-mode'), voices: $('#voices'), music: $('#music'), volume: $('#music-volume'), volumeValue: $('#music-volume-value'), auto: $('#auto'), viewMode: $('#view-mode'),
   endCard: $('#end-card'), replay: $('#replay'), endLibrary: $('#end-library')
 };
 
@@ -118,7 +118,7 @@ function captureArt(state = reader.state) {
   const root = state.pageOverviewEnabled ? el.pageView : el.focused;
   return sheet.snapshot(root, image => {
     const id = image.dataset.balloonId;
-    const balloon = reader.bundle.pages.flatMap(page => page.scenes).flatMap(scene => scene.balloons ?? []).find(item => item.id === id);
+    const balloon = reader.pages.flatMap(page => page.scenes).flatMap(scene => scene.balloons ?? []).find(item => item.id === id);
     return balloon?.visual ? new URL(balloon.visual.normal, reader.bundle.assetBase).href : null;
   });
 }
@@ -168,12 +168,12 @@ async function prepareDrag(gesture) {
   const { reader: owner, index, overview } = gesture;
   const source = captureArt(owner.state);
   const scene = scenePresentation(owner.scenes[index], overview);
-  const root = overview ? createPageView(owner.bundle.pages[scene.pageIndex], owner.bundle) : document.createElement('div');
+  const root = overview ? createPageView(owner.pages[scene.pageIndex], owner.bundle) : document.createElement('div');
   if (!overview) {
     root.className = 'panel-frame';
     const panel = document.createElement('img');
     artwork(panel, scene.panel, owner.bundle); panel.alt = ''; root.append(panel);
-    if (['2.0', '3.0', '4.0'].includes(owner.bundle.schemaVersion)) {
+    if (['2.0', '3.0', '4.0', '5.0'].includes(owner.bundle.schemaVersion)) {
       const layer = document.createElement('div'); layer.className = 'highlight-layer';
       for (const balloon of scene.balloons) {
         const image = document.createElement('img'); image.className = 'balloon-asset';
@@ -189,7 +189,7 @@ async function prepareDrag(gesture) {
   gesture.cleanup = () => preparation.remove();
   try {
     await decodeArt(root);
-    if (!overview && ['2.0', '3.0', '4.0'].includes(owner.bundle.schemaVersion)) {
+    if (!overview && ['2.0', '3.0', '4.0', '5.0'].includes(owner.bundle.schemaVersion)) {
       const image = root.querySelector('img'); const layer = root.querySelector('.highlight-layer');
       const scale = Math.min(root.clientWidth / image.naturalWidth, root.clientHeight / image.naturalHeight);
       Object.assign(layer.style, { inset: 'auto', width: `${image.naturalWidth * scale}px`, height: `${image.naturalHeight * scale}px`,
@@ -461,7 +461,7 @@ async function startReader(bundle, bundleUrl, generation, availablePages = Infin
   bundle.assetBase = bundleUrl;
   reader = new ReaderController(bundle, {
     availablePages,
-    preferences: preferences(),
+    preferences: { ...preferences(), narrative: "narrada" },
     capturePresentation: captureArt, present: presentArt, cancelPresentation: cancelVisual, finishVisual,
     onChange: (state, scene) => render(state, scene),
     onEvent: event => console.info('[Gimbol]', JSON.stringify({ slug: bundle.slug, ...event }))
@@ -601,7 +601,7 @@ function createPageView(page, bundle) {
       image.alt = `Quadrinho ${scene.id}`;
       image.onerror = () => { if (generation === requestGeneration && reader?.bundle === bundle) showReaderError(`Arte ${scene.id} indisponível. Volte à biblioteca ou tente novamente.`); };
       const overlay = document.createElement('div'); overlay.className = 'highlight-layer'; overlay.setAttribute('aria-hidden', 'true');
-      if (['2.0', '3.0', '4.0'].includes(bundle.schemaVersion)) for (const balloon of scene.balloons) {
+      if (['2.0', '3.0', '4.0', '5.0'].includes(bundle.schemaVersion)) for (const balloon of scene.balloons) {
         const variant = document.createElement('img'); variant.className = 'balloon-asset';
         variant.dataset.balloonId = balloon.id; variant.alt = ''; variant.draggable = false;
         variant.src = new URL(balloon.visual.normal, bundle.assetBase).href; variant.style.objectFit = 'fill'; overlay.append(variant);
@@ -626,8 +626,10 @@ function render(state, scene) {
   el.enterFullscreen.disabled = state.status !== 'ready';
   const bundle = reader.bundle;
   writeBookmark(bundle.slug, bundle.version, { sceneId: scene.id, sceneIndexGlobal: state.sceneIndexGlobal,
-    totalScenes: reader.scenes.length, completed: state.status === 'ended', updatedAt: new Date().toISOString() });
-  const page = bundle.pages[state.pageIndex];
+    totalScenes: reader.scenes.length, narrative: state.narrative, completed: state.status === 'ended', updatedAt: new Date().toISOString() });
+  const page = reader.pages[state.pageIndex];
+  el.narrative.hidden = bundle.schemaVersion !== '5.0';
+  el.narrative.value = state.narrative;
   el.title.textContent = bundle.title;
   el.pageCounter.textContent = `${scene.pageNumber} / ${bundle.pages.length}`;
   el.sceneCounter.textContent = `${state.sceneIndexGlobal + 1} / ${reader.scenes.length}`;
@@ -637,21 +639,21 @@ function render(state, scene) {
   const focusedScene = scenePresentation(scene);
   el.stage.classList.toggle('has-focused-variant', !state.pageOverviewEnabled && Boolean(scene.focused));
   const imageUrl = new URL(focusedScene.panel, bundle.assetBase).href;
-  if (['3.0', '4.0'].includes(bundle.schemaVersion)) artwork(el.panel, focusedScene.panel, bundle);
+  if (['3.0', '4.0', '5.0'].includes(bundle.schemaVersion)) artwork(el.panel, focusedScene.panel, bundle);
   else if (el.panel.src !== imageUrl) el.panel.src = imageUrl;
   el.panel.alt = `Quadrinho ${state.sceneIndexGlobal + 1}: ${scene.balloons?.length ? 'cena com falas' : 'cena sem falas'}`;
-  if (state.pageOverviewEnabled && renderedPage !== state.pageIndex) { buildPageView(page, bundle); renderedPage = state.pageIndex; }
+  if (state.pageOverviewEnabled && renderedPage !== `${state.narrative}/${state.pageIndex}`) { buildPageView(page, bundle); renderedPage = `${state.narrative}/${state.pageIndex}`; }
   el.focused.hidden = state.pageOverviewEnabled;
   el.pageView.hidden = !state.pageOverviewEnabled;
   fitPageView();
   const active = scene.balloons?.find(balloon => balloon.id === state.activeBalloonId);
-  if (['2.0', '3.0', '4.0'].includes(bundle.schemaVersion)) balloonAssets(el.layer, focusedScene, state.activeBalloonId);
+  if (['2.0', '3.0', '4.0', '5.0'].includes(bundle.schemaVersion)) balloonAssets(el.layer, focusedScene, state.activeBalloonId);
   else glowAt(el.layer, active);
   alignFocusedGlow();
   for (const cell of el.pageView.querySelectorAll('.overview-panel')) {
     cell.classList.toggle('current', cell.dataset.sceneId === scene.id);
     const layer = cell.querySelector('.highlight-layer');
-    if (['2.0', '3.0', '4.0'].includes(bundle.schemaVersion)) balloonAssets(layer, page.scenes.find(item => item.id === cell.dataset.sceneId),
+    if (['2.0', '3.0', '4.0', '5.0'].includes(bundle.schemaVersion)) balloonAssets(layer, page.scenes.find(item => item.id === cell.dataset.sceneId),
       cell.dataset.sceneId === scene.id ? state.activeBalloonId : null, true);
     else glowAt(layer, cell.dataset.sceneId === scene.id ? active : null);
   }
@@ -723,6 +725,7 @@ el.previous.addEventListener('click', () => reader?.previous());
 el.next.addEventListener('click', () => reader?.next());
 el.previousPage.addEventListener('click', () => reader?.goToPage(reader.scene.pageNumber - 1));
 el.nextPage.addEventListener('click', () => reader?.goToPage(reader.scene.pageNumber + 1));
+el.narrative.addEventListener('change', () => { drag.cancel(false, false); renderedPage = null; reader?.setNarrative(el.narrative.value); });
 el.voices.addEventListener('click', () => reader?.setVoices(!reader.state.voicesEnabled));
 el.music.addEventListener('click', () => reader?.setMusic(!reader.state.musicEnabled));
 el.volume.addEventListener('input', () => reader?.setMusicVolume(el.volume.value));

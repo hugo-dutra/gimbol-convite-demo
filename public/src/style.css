@@ -189,3 +189,7 @@ body.reading .topbar { display: none; }
 #music-volume::-webkit-slider-runnable-track { height: 8px; border-radius: 999px; background: linear-gradient(90deg, #bd6cf1 var(--volume-level, 25%), #58416e var(--volume-level, 25%)); }
 #music-volume::-moz-range-track { height: 8px; border-radius: 999px; background: #58416e; }
 #music-volume::-moz-range-progress { height: 8px; border-radius: 999px; background: #bd6cf1; }
+
+.narrative-selector { display:flex; justify-content:center; align-items:center; gap:12px; padding:6px; }
+.narrative-selector select { min-height:44px; border-radius:12px; padding:6px 14px; font:inherit; background:#fff; color:#17202a; }
+.narrative-selector:has(select[hidden]) { display:none; }

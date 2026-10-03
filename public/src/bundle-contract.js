@@ -1,3 +1,40 @@
+
+export function narrativeModes(bundle) {
+  return bundle.schemaVersion === '5.0' ? ['gibi', 'narrada'] : ['gibi'];
+}
+export function pagesForNarrative(bundle, mode = 'gibi') {
+  if (!narrativeModes(bundle).includes(mode)) throw new Error('Versão narrativa indisponível.');
+  return bundle.schemaVersion === '5.0' ? bundle.narratives[mode].pages : bundle.pages;
+}
+export function allNarrativePages(bundle) {
+  return bundle.schemaVersion === '5.0' ? narrativeModes(bundle).flatMap(mode => pagesForNarrative(bundle, mode)) : bundle.pages;
+}
+function validateNarratives(bundle) {
+  const modes = bundle.narratives;
+  if (!modes || Object.keys(modes).sort().join(',') !== 'gibi,narrada' ||
+      Object.values(modes).some(mode => !mode || Object.keys(mode).join(',') !== 'pages' || !Array.isArray(mode.pages) || !mode.pages.length) ||
+      JSON.stringify(bundle.pages) !== JSON.stringify(modes.gibi.pages)) throw new Error('Bundle exige Gibi e Narrador completos; página padrão é Gibi.');
+  const alignment = pages => pages.map(page => ({ number: page.number, rows: page.rows,
+    scenes: page.scenes.map(scene => ({ id: scene.id, trackId: scene.trackId })) }));
+  if (JSON.stringify(alignment(modes.gibi.pages)) !== JSON.stringify(alignment(modes.narrada.pages))) throw new Error('Versões narrativas desalinhadas.');
+  const ids = new Set();
+  for (const mode of ['gibi', 'narrada']) {
+    const audioOnlyScenes = new Set();
+    for (const scene of modes[mode].pages.flatMap(page => page.scenes)) {
+      if (scene.holdAfterSeconds !== undefined && (!Number.isFinite(scene.holdAfterSeconds) || scene.holdAfterSeconds < 0 || scene.holdAfterSeconds > 120)) throw new Error('Tempo de leitura inválido.');
+      if (mode === 'narrada' && !scene.balloons?.length) throw new Error('Narração completa ausente na cena.');
+      for (const balloon of scene.balloons ?? []) {
+        if (ids.has(balloon.id)) throw new Error('ID de fala reutilizado entre versões.');
+        ids.add(balloon.id);
+        if (balloon.audioOnly !== undefined && balloon.audioOnly !== true) throw new Error('audioOnly inválido.');
+        if (balloon.audioOnly) audioOnlyScenes.add(scene.id);
+        if (mode === 'narrada' && balloon.kind !== 'narracao' && balloon.audioOnly !== true) throw new Error('Versão narrada exige somente narrador, salvo convite sem balão.');
+      }
+    }
+    if (mode === 'narrada' && audioOnlyScenes.size > 1) throw new Error('A exceção de personagens sem balão deve ficar em uma única cena de convite.');
+  }
+}
+
 // Shared browser-safe bundle 2.0 validation. Canonical source: packages/bundle-contract/browser.mjs.
 export function mediaType(path) {
   if (/^images\/[a-f0-9]{64}\.png$/.test(path)) return 'image/png';
@@ -9,11 +46,11 @@ export function mediaType(path) {
 }
 
 export function referencedPaths(bundle) {
-  return [...new Set([bundle.cover, ...bundle.pages.flatMap(page => [page.preview,
+  return [...new Set([bundle.cover, ...allNarrativePages(bundle).flatMap(page => [page.preview,
     ...page.scenes.flatMap(scene => [scene.panel, ...scene.balloons.flatMap(balloon =>
-      [balloon.audio.path, ...(['2.0', '3.0', '4.0'].includes(bundle.schemaVersion) ? [balloon.visual?.normal, balloon.visual?.glow] : [])]),
+      [balloon.audio.path, ...(['2.0', '3.0', '4.0', '5.0'].includes(bundle.schemaVersion) ? [balloon.visual?.normal, balloon.visual?.glow] : [])]),
       ...(scene.focused ? [scene.focused.panel, ...scene.focused.balloons.flatMap(balloon => [balloon.visual?.normal, balloon.visual?.glow])] : [])])]),
-    ...bundle.tracks.map(track => track.path), ...(['3.0', '4.0'].includes(bundle.schemaVersion) ? bundle.images : [])])];
+    ...bundle.tracks.map(track => track.path), ...(['3.0', '4.0', '5.0'].includes(bundle.schemaVersion) ? bundle.images : [])])];
 }
 
 // Resolve artwork and overlays together; narrative/audio always come from the scene.
@@ -24,16 +61,17 @@ export function scenePresentation(scene, overview = false) {
 }
 
 export function validateDelivery(bundle) {
-  if (bundle.schemaVersion !== '4.0' && bundle.pages.some(page => page.scenes.some(scene => scene.focused !== undefined))) throw new Error('Composição focused exige entrega 4.0.');
-  if (!['2.0', '3.0', '4.0'].includes(bundle.schemaVersion)) return;
-  if (['3.0', '4.0'].includes(bundle.schemaVersion) && (!Array.isArray(bundle.images) ||
+  if (bundle.schemaVersion === '5.0') validateNarratives(bundle);
+  if (!['4.0', '5.0'].includes(bundle.schemaVersion) && bundle.pages.some(page => page.scenes.some(scene => scene.focused !== undefined))) throw new Error('Composição focused exige entrega 4.0.');
+  if (!['2.0', '3.0', '4.0', '5.0'].includes(bundle.schemaVersion)) return;
+  if (['3.0', '4.0', '5.0'].includes(bundle.schemaVersion) && (!Array.isArray(bundle.images) ||
     new Set(bundle.images).size !== bundle.images.length || bundle.images.some(path => !/^images\/[a-f0-9]{64}\.(png|jpeg)$/.test(path)))) throw new Error('Imagens compartilhadas inválidas.');
   const paths = referencedPaths(bundle);
   const safe = path => typeof path === 'string' && /^(paginas|quadrinhos|baloes|audio|trilhas|images)\/[A-Za-z0-9_./-]+$/.test(path) &&
     path.split('/').every(part => part && part !== '.' && part !== '..');
   if (paths.some(path => !safe(path))) throw new Error('Asset 2.0 inválido.');
   const visualPaths = new Set();
-  for (const scene of bundle.pages.flatMap(page => page.scenes)) {
+  for (const scene of allNarrativePages(bundle).flatMap(page => page.scenes)) {
     if (scene.focused !== undefined) {
       const focused = scene.focused;
       if (!focused || !Array.isArray(focused.balloons) || focused.balloons.length !== scene.balloons.length ||
@@ -138,6 +176,10 @@ function validatePresentationVisuals(scene, getText) {
   for (const balloon of scene.balloons) {
     const normal = svgTree(getText(balloon.visual.normal)), glow = svgTree(getText(balloon.visual.glow));
     canvas(normal, scene.viewBox); canvas(glow, scene.viewBox);
+    if (balloon.audioOnly === true) {
+      if (normal.children.length || glow.children.length) throw new Error('Fala sem balão deve ter overlays vazios.');
+      continue;
+    }
     const filters = new Set();
     let appliedFilters = 0;
     function geometry(node, inDefs = false) {
@@ -205,7 +247,7 @@ export function sharedImageReferences(svg, images) {
 }
 
 export function validateImageReferences(bundle, getText) {
-  if (!['3.0', '4.0'].includes(bundle.schemaVersion)) return;
+  if (!['3.0', '4.0', '5.0'].includes(bundle.schemaVersion)) return;
   const used = new Set();
   for (const asset of bundle.assets) {
     if (asset.mime === 'image/svg+xml') sharedImageReferences(getText(asset.path), bundle.images).forEach(path => used.add(path));

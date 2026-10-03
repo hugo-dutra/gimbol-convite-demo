@@ -7,7 +7,7 @@
     <meta name="description" content="Biblioteca de quadrinhos com narração sincronizada." />
     <link rel="icon" type="image/png" sizes="32x32" href="./icons/gimbol-favicon-32.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="./icons/gimbol-apple-180.png" />
-    <link rel="stylesheet" href="./src/style.css?v=20" />
+    <link rel="stylesheet" href="./src/style.css?v=21" />
     <title>Gimbol · Biblioteca</title>
   <style>#standalone-entry { text-align:center; padding:1rem; color:#fff; background:#211037; }
 #standalone-entry button { padding:.85rem 1.3rem; border:0; border-radius:1rem; background:#6421b8; color:white; font:inherit; cursor:pointer; }
@@ -83,6 +83,7 @@
         </div>
 
         <div class="reader-dock">
+          <div class="narrative-selector"><label for="narrative-mode">Versão da história</label><select id="narrative-mode" hidden><option value="gibi">Gibi</option><option value="narrada">Narrada</option></select></div>
           <div class="volume-row">
             <img src="./icons/speaker.svg" alt="" aria-hidden="true" />
             <label class="sr-only" for="music-volume">Volume da música</label>

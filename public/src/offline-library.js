@@ -1,4 +1,4 @@
-import { referencedPaths, validateVisuals, validateImageReferences, sharedImageReferences } from './bundle-contract.js';
+import { allNarrativePages, pagesForNarrative, narrativeModes, referencedPaths, validateVisuals, validateImageReferences, sharedImageReferences } from './bundle-contract.js';
 
 import { prepareBundle } from './reader.js';
 
@@ -97,8 +97,9 @@ export async function savePartial(db, record) {
 }
 
 export function pagePaths(bundle, page) {
-  const scenes = prepareBundle(bundle).filter(scene => scene.pageNumber === page.number);
-  return [...new Set([page.preview, ...scenes.flatMap(scene => [scene.panel,
+  const pages = narrativeModes(bundle).map(mode => pagesForNarrative(bundle, mode)[page.number - 1]);
+  const scenes = pages.flatMap(page => page.scenes);
+  return [...new Set([...pages.map(page => page.preview), ...scenes.flatMap(scene => [scene.panel,
     ...scene.balloons.flatMap(balloon => [balloon.audio.path, balloon.visual?.normal, balloon.visual?.glow]),
     ...(scene.focused ? [scene.focused.panel, ...scene.focused.balloons.flatMap(balloon => [balloon.visual.normal, balloon.visual.glow])] : []),
     ...bundle.tracks.filter(track => track.id === scene.trackId).map(track => track.path)])].filter(Boolean))];
@@ -174,15 +175,15 @@ export async function isComplete(record, cacheStorage = caches) {
     for (const url of urls) {
       const response = await cache.match(url);
       if (!response?.ok) return false;
-      if (['2.0', '3.0', '4.0'].includes(bundle.schemaVersion)) {
+      if (['2.0', '3.0', '4.0', '5.0'].includes(bundle.schemaVersion)) {
         const asset = bundle.assets.find(item => new URL(item.path, record.bundleUrl).href === url);
         const bytes = await response.arrayBuffer();
         await verifyAsset(response, url, bytes, asset);
         if (/^(paginas|quadrinhos|baloes)\//.test(asset.path)) visuals.set(asset.path, new TextDecoder('utf-8', { fatal: true }).decode(bytes));
       }
     }
-    if (['2.0', '3.0', '4.0'].includes(bundle.schemaVersion)) {
-      for (const scene of bundle.pages.flatMap(page => page.scenes)) validateVisuals(scene, name => visuals.get(name));
+    if (['2.0', '3.0', '4.0', '5.0'].includes(bundle.schemaVersion)) {
+      for (const scene of allNarrativePages(bundle).flatMap(page => page.scenes)) validateVisuals(scene, name => visuals.get(name));
       validateImageReferences(bundle, name => visuals.get(name));
       if (await deliveryVersion(bundle) !== bundle.version) return false;
     }
@@ -257,7 +258,7 @@ async function transferStory({ entry, catalogUrl, db, fetcher = fetch, cacheStor
   checkResponse(response, bundleUrl);
   const manifestBytes = await response.arrayBuffer();
   const bundle = JSON.parse(new TextDecoder().decode(manifestBytes));
-  if (!['1.0', '2.0', '3.0', '4.0'].includes(bundle.schemaVersion) || bundle.slug !== entry.slug || !VERSION.test(bundle.version) ||
+  if (!['1.0', '2.0', '3.0', '4.0', '5.0'].includes(bundle.schemaVersion) || bundle.slug !== entry.slug || !VERSION.test(bundle.version) ||
     !new URL(bundleUrl).pathname.endsWith(`/${entry.slug}/${bundle.version}/bundle.json`)) throw new Error('Bundle incompatível.');
   const urls = assetUrls(bundle, bundleUrl);
   version = bundle.version;
@@ -268,7 +269,7 @@ async function transferStory({ entry, catalogUrl, db, fetcher = fetch, cacheStor
   if (existing && await isComplete(existing, cacheStorage)) { emit('ready'); return { bundle, record: existing }; }
   if (existing) await index.removeStory(db, existing, cacheStorage);
   const declaredSize = manifestBytes.byteLength +
-    (['2.0', '3.0', '4.0'].includes(bundle.schemaVersion) ? bundle.assets.reduce((sum, asset) => sum + asset.bytes, 0) : 0);
+    (['2.0', '3.0', '4.0', '5.0'].includes(bundle.schemaVersion) ? bundle.assets.reduce((sum, asset) => sum + asset.bytes, 0) : 0);
   // Reopening resumes this immutable release; complete resources survive exit/reload.
   // removeStory may have deleted a broken committed cache, so reopen its handle.
   const targetCache = existing ? await cacheStorage.open(name) : cache;
@@ -302,7 +303,7 @@ async function transferStory({ entry, catalogUrl, db, fetcher = fetch, cacheStor
   if (estimate?.quota && estimate.quota - (estimate.usage ?? 0) < missingSize * 1.05) {
     const error = new Error('Espaço insuficiente.'); error.name = 'QuotaExceededError'; throw error;
   }
-  const dependencies = path => modern && path.endsWith('.svg') && ['3.0', '4.0'].includes(bundle.schemaVersion)
+  const dependencies = path => modern && path.endsWith('.svg') && ['3.0', '4.0', '5.0'].includes(bundle.schemaVersion)
     ? sharedImageReferences(visuals.get(path), bundle.images) : [];
   const expose = path => { exposed.add(path); for (const dependency of dependencies(path)) expose(dependency); };
   const completePath = path => downloaded.has(path) && dependencies(path).every(completePath);
@@ -335,7 +336,7 @@ async function transferStory({ entry, catalogUrl, db, fetcher = fetch, cacheStor
     if (path.endsWith('.svg') && modern) {
       const svg = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
       visuals.set(path, svg);
-      if (['3.0', '4.0'].includes(bundle.schemaVersion)) {
+      if (['3.0', '4.0', '5.0'].includes(bundle.schemaVersion)) {
         for (const dependency of sharedImageReferences(svg, bundle.images)) await download(dependency);
       }
     }
@@ -346,14 +347,14 @@ async function transferStory({ entry, catalogUrl, db, fetcher = fetch, cacheStor
     for (const page of bundle.pages) {
       const paths = pagePaths(bundle, page);
       if (!paths.every(completePath)) break;
-      if (modern) for (const scene of page.scenes) validateVisuals(scene, path => visuals.get(path));
+      if (modern) for (const scene of allNarrativePages(bundle).filter(p => p.number === page.number).flatMap(p => p.scenes)) validateVisuals(scene, path => visuals.get(path));
       paths.forEach(expose); readyPages++;
     }
     await publishPages();
     emit('downloading');
     for (const page of bundle.pages.slice(readyPages)) {
       for (const path of pagePaths(bundle, page)) await download(path);
-      if (modern) for (const scene of page.scenes) validateVisuals(scene, path => visuals.get(path));
+      if (modern) for (const scene of allNarrativePages(bundle).filter(p => p.number === page.number).flatMap(p => p.scenes)) validateVisuals(scene, path => visuals.get(path));
       abort();
       readyPages++;
       pagePaths(bundle, page).forEach(expose);

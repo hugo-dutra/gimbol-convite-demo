@@ -1,7 +1,7 @@
-import { validateDelivery } from './bundle-contract.js';
+import { validateDelivery, pagesForNarrative, narrativeModes } from './bundle-contract.js';
 
-export function prepareBundle(bundle) {
-  if (!['1.0', '2.0', '3.0', '4.0'].includes(bundle?.schemaVersion) || !Array.isArray(bundle.pages)) {
+export function prepareBundle(bundle, narrative = 'gibi') {
+  if (!['1.0', '2.0', '3.0', '4.0', '5.0'].includes(bundle?.schemaVersion) || !Array.isArray(bundle.pages)) {
     throw new Error('Bundle indisponível.');
   }
 
@@ -13,7 +13,7 @@ export function prepareBundle(bundle) {
 
   validateDelivery(bundle);
   const scenes = [];
-  bundle.pages.forEach((page, pageIndex) => {
+  pagesForNarrative(bundle, narrative).forEach((page, pageIndex) => {
     if (!localAsset(page.preview) || page.scenes.some(scene => !localAsset(scene.panel) ||
       scene.balloons?.some(balloon => !localAsset(balloon.audio?.path)))) throw new Error(`Asset inválido na página ${page.number}.`);
     const byId = new Map(page.scenes.map(scene => [scene.id, scene]));
@@ -55,7 +55,8 @@ export class ReaderController {
     this.autoDue = null;
     this.resumeSpeech = null;
     this.bundle = bundle;
-    this.scenes = prepareBundle(bundle);
+    this.narrative = narrativeModes(bundle).includes(preferences.narrative) ? preferences.narrative : 'gibi';
+    this.scenes = prepareBundle(bundle, this.narrative);
     this.createAudio = createAudio;
     this.onChange = onChange;
     this.onEvent = onEvent;
@@ -70,6 +71,7 @@ export class ReaderController {
     this.now = now;
     this.state = {
       status: 'ready',
+      narrative: this.narrative,
       sceneIndexGlobal: 0,
       pageIndex: this.scenes[0].pageIndex,
       generation: 0,
@@ -83,6 +85,24 @@ export class ReaderController {
       audioNotice: null,
       visualNotice: null
     };
+  }
+
+  get pages() { return pagesForNarrative(this.bundle, this.state.narrative); }
+
+  setNarrative(mode) {
+    if (mode === this.state.narrative) return false;
+    if (!narrativeModes(this.bundle).includes(mode)) throw new Error('Versão narrativa indisponível.');
+    const sceneId = this.scene.id;
+    const scenes = prepareBundle(this.bundle, mode);
+    const index = scenes.findIndex(scene => scene.id === sceneId);
+    this.cancelPresentation();
+    this.presentationGeneration = null;
+    this.state.generation += 1;
+    this.cancelPlayback();
+    this.scenes = scenes;
+    this.state.narrative = mode;
+    this.hasEntered = false;
+    return this.enter(index < 0 ? 0 : index);
   }
 
   get scene() { return this.scenes[this.state.sceneIndexGlobal]; }
@@ -313,7 +333,7 @@ export class ReaderController {
   scheduleAdvance(generation, remaining = null) {
     if (!this.state.autoAdvanceEnabled || this.state.status !== 'ready' || this.suspension || this.presentationGeneration !== null) return;
     if (this.autoTimer !== null) this.clearTimer(this.autoTimer);
-    const delay = remaining ?? (this.scene.balloons?.length && this.state.voicesEnabled ? 900 : 1800);
+    const delay = remaining ?? Math.max((this.scene.holdAfterSeconds ?? 0) * 1000, this.scene.balloons?.length && this.state.voicesEnabled ? 900 : 1800);
     this.autoDue = this.now() + delay;
     this.autoTimer = this.setTimer(() => {
       this.autoTimer = null;
